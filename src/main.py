@@ -50,6 +50,7 @@ def preprocess(text):
     return text
 
 
+# Returns padded vector corresponding to given line number
 def getVector(lineNo, glove_model, max_seq_length, vocab):
     sentence = id2line[lineNo].split()
     pad_len = max_seq_length - len(sentence)
@@ -65,14 +66,16 @@ def getVector(lineNo, glove_model, max_seq_length, vocab):
         else:
             print('UNK')
             vect.append( glove_model['<unk>'] )
-    #print('##########################################################################################')
     vect = np.array(vect)
     return vect
 
-
+# Returns nearest word to the given vector
 def getWord(vec, glove_model):
-
-    return "asd"
+    key_dist = {}
+    for key in glove_model.keys():
+        key_dist[key] = np.sum(np.square( vec - glove_model[key] ))
+    min_key = min(key_dist, key=key_dist.get)
+    return min_key
 
 
 ############################################################################################################
@@ -122,16 +125,7 @@ for line_ids in list(id2line.keys()):
         lines_to_ignore.append(line_ids)
 
 
-
-'''
-index = 40
-for i in range(index, index+5):
-    print(id2line[X[i]])
-    print(id2line[Y[i]])
-    print()
-'''
 text_arr = []
-
 # If any conversation has a dialogue which appears in dialogs_to_ignore, we discard that conversation all together
 for conv_index in range(len(convs)):
     # The intersecrion returns set of elements which are present in both the lists
@@ -183,7 +177,7 @@ print('word2vec size : ', len(word2vec.keys()))
 X = []
 Y = []
 
-
+'''
 total_convs = 60   # len(convs)
 
 for conv_index in range(total_convs):
@@ -201,3 +195,4 @@ Y = np.array(Y)
 
 print(X.shape)
 print(Y.shape)
+'''
