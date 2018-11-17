@@ -70,6 +70,11 @@ def getVector(lineNo, glove_model, max_seq_length, vocab):
     return vect
 
 
+def getWord(vec, glove_model):
+
+    return "asd"
+
+
 ############################################################################################################
 
 
@@ -163,8 +168,16 @@ intersection =  set(vocab) & set(glove_list)
 no_mapping = list(set(vocab) - intersection)
 print('No Mapping : ', len(no_mapping))
 
+
 vocab = list( set(vocab) - set(no_mapping) )
 print('New Vocab Size : ', len(vocab))
+
+word2vec = {}
+
+for key in vocab:
+    word2vec[key] = glove_model[key]
+
+print('word2vec size : ', len(word2vec.keys()))
 
 
 X = []
@@ -178,8 +191,8 @@ for conv_index in range(total_convs):
     print(conv_index, total_convs)
     if(  set(convs[conv_index]) & set(lines_to_ignore)  ==  set() ):
         for  i in range(len(convs[conv_index])-1):
-            vectorX = getVector(convs[conv_index][i], glove_model, max_seq_length, vocab)
-            vectorY = getVector(convs[conv_index][i+1], glove_model, max_seq_length, vocab)
+            vectorX = getVector(convs[conv_index][i], word2vec, max_seq_length, vocab)
+            vectorY = getVector(convs[conv_index][i+1], word2vec, max_seq_length, vocab)
             X.append(vectorX)
             Y.append(vectorY)
 
