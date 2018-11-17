@@ -15,6 +15,11 @@ dimension = 50
 # Total number of conversations which we consider for training.
 total_convs = 200   # len(convs)
 
+# Learning parameters
+num_epochs = 20
+batch_size = 64
+learning_rate = 1e-4
+
 
 #####################################################################################################################################
 
@@ -155,4 +160,5 @@ print(Y_CV.shape)
 
 #####################################################################################################################################
 
-x = tf.placeholder()
+x = tf.placeholder(tf.float32, [None, max_seq_length, dimension], name='input')
+y = tf.placeholder(tf.float32, [None, max_seq_length, dimension], name='output')
