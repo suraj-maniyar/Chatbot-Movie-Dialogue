@@ -50,6 +50,27 @@ def preprocess(text):
     return text
 
 
+def getVector(lineNo, glove_model, max_seq_length, vocab):
+    sentence = id2line[lineNo].split()
+    pad_len = max_seq_length - len(sentence)
+    if(pad_len < 0):
+        print("*********************************************")
+    pad = ['<pad>'] * pad_len
+    sentence = pad + sentence
+    vect = []
+    for i in range(len(sentence)):
+        if(sentence[i] in vocab):
+            vect.append( glove_model[sentence[i]] )
+            #print(sentence[i])
+        else:
+            print('UNK')
+            vect.append( glove_model['<unk>'] )
+    #print('##########################################################################################')
+    vect = np.array(vect)
+    return vect
+
+
+############################################################################################################
 
 
 lines_file = 'data/movie_lines.txt'
@@ -85,32 +106,17 @@ for conv_index in range(len(convs)):
     if(len(convs[conv_index]) > 1):
        for i in range(len(convs[conv_index])):
          len_arr.append( len(id2line[convs[conv_index][i]].split()) )
-
+len_arr.sort(reverse=True)
 
 # Threshold maximum number of words to be used in a dialogue.
 max_seq_length = 100
 
-dialogs_to_ignore = []
+lines_to_ignore = []
 for line_ids in list(id2line.keys()):
-    if( len( id2line[line_ids].split() ) > max_seq_length):
-        dialogs_to_ignore.append(line_ids)
+    if( len( id2line[line_ids].split() ) > max_seq_length ):
+        lines_to_ignore.append(line_ids)
 
-# Generate the training data. The input is the current dialogue and its output is the next dialogue
-X = []
-Y = []
 
-# If any conversation has a dialogue which appears in dialogs_to_ignore, we discard that conversation all together
-for conv_index in range(len(convs)):
-    # The intersecrion returns set of elements which are present in both the lists
-    if(  set(convs[conv_index]) & set(dialogs_to_ignore)  ==  set() ):
-        for i in range(len(convs[conv_index])-1):
-            X.append( id2line[ convs[conv_index][i]   ] )
-            Y.append( id2line[ convs[conv_index][i+1] ] )
-
-print('max_seq_length', max_seq_length)
-print('dialogs_to_ignore', len(dialogs_to_ignore))
-print('len(X) : ', len(X))
-print('len(Y) : ', len(Y))
 
 '''
 index = 40
@@ -119,19 +125,38 @@ for i in range(index, index+5):
     print(id2line[Y[i]])
     print()
 '''
+text_arr = []
 
-words_list2 = [element.split() for element in X]
+# If any conversation has a dialogue which appears in dialogs_to_ignore, we discard that conversation all together
+for conv_index in range(len(convs)):
+    # The intersecrion returns set of elements which are present in both the lists
+    if(  set(convs[conv_index]) & set(lines_to_ignore)  ==  set() ):
+        for i in range(len(convs[conv_index])-1):
+            text_arr.append( id2line[ convs[conv_index][i]   ] )
+
+
+
+print('max_seq_length', max_seq_length)
+print('lines_to_ignore', len(lines_to_ignore))
+print('len(text_arr) : ', len(text_arr))
+
+
+words_list2 = [element.split() for element in text_arr]
 word_list = []
 for sublist in words_list2:
     for item in sublist:
         word_list.append(item)
 
+# Vocab list pertaining to our data (Cornell Movie Data)
 vocab = list(set(word_list))
+vocab.append('<unk>')
+vocab.append('<pad>')
 print('Vocab Size = ', len(vocab))
 
 
 glove_model = loadGloveModel('/home/suraj/Dataset/glove.6B/glove.6B.50d.txt')
 glove_model['<eos>'] = glove_model['.']
+glove_model['<pad>'] = np.zeros(50)
 glove_list = list(glove_model.keys())
 
 intersection =  set(vocab) & set(glove_list)
@@ -141,35 +166,25 @@ print('No Mapping : ', len(no_mapping))
 vocab = list( set(vocab) - set(no_mapping) )
 print('New Vocab Size : ', len(vocab))
 
-X_train = []
-Y_train = []
 
-for i in range(len(X)):
-    X_ = X[i].split()
-    Y_ = Y[i].split()
-    elemX = []
-    elemY = []
+X = []
+Y = []
 
-    for j in range(len(X_)):
-        if(X_[j] in vocab):
-            elemX.append( glove_model[X_[j]] )
-        else:
-            elemX.append( glove_model['<unk>'] )
 
-    for j in range(len(Y_)):
-        if(Y_[j] in vocab):
-            elemY.append( glove_model[Y_[j]] )
-        else:
-            elemY.append( glove_model['<unk>'] )
+total_convs = 60   # len(convs)
 
-    elemX = np.array(elemX)
-    elemY = np.array(elemY)
+for conv_index in range(total_convs):
+    # The intersecrion returns set of elements which are present in both the lists
+    print(conv_index, total_convs)
+    if(  set(convs[conv_index]) & set(lines_to_ignore)  ==  set() ):
+        for  i in range(len(convs[conv_index])-1):
+            vectorX = getVector(convs[conv_index][i], glove_model, max_seq_length, vocab)
+            vectorY = getVector(convs[conv_index][i+1], glove_model, max_seq_length, vocab)
+            X.append(vectorX)
+            Y.append(vectorY)
 
-    X_train.append(elemX)
-    Y_train.append(elemY)
+X = np.array(X)
+Y = np.array(Y)
 
-X_train = np.array(X_train)
-Y_train = np.array(Y_train)
-
-print('X_train : ', X_train.shape)
-print('Y_train : ', Y_train.shape)
+print(X.shape)
+print(Y.shape)
