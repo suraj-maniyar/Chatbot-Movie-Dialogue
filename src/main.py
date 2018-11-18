@@ -6,8 +6,10 @@ os.chdir('..')
 
 #####################################################################################################################################
 
-# Threshold maximum number of words to be used in a dialogue. Dialogs having more number of words than this threshold will be discarded.
+# Threshold maximum and minimum number of words to be used in a dialogue.
+# Dialogs having number of words outside this threshold will be discarded.
 max_seq_length = 100
+min_seq_length = 2
 
 # Dimension of word vector
 dimension = 50
@@ -64,9 +66,10 @@ len_arr.sort(reverse=True)
 # Contains line numbers for which sentences are longer than threshold length
 lines_to_ignore = []
 for line_ids in list(id2line.keys()):
-    if( len( id2line[line_ids].split() ) > max_seq_length ):
+    if( len( id2line[line_ids].split() ) > max_seq_length or len( id2line[line_ids].split() ) < min_seq_length ):
         lines_to_ignore.append(line_ids)
 
+print('Total number of lines to ignore : ', len(lines_to_ignore))
 
 print('Generating vocab....')
 # List to store all valid dialogues. (Text Corpus)
@@ -81,7 +84,7 @@ for conv_index in range(len(convs)):
 
 
 #print('max_seq_length : ', max_seq_length)
-print('Total number of lines to ignore : ', len(lines_to_ignore))
+
 print('Total number of sentences : ', len(text_arr))
 
 # Union of words in text corpus
@@ -133,8 +136,8 @@ for conv_index in range(total_convs):
     print('\nConversation',conv_index, '/', total_convs, ' Sentences:',len(convs[conv_index]))
     if(  set(convs[conv_index]) & set(lines_to_ignore)  ==  set() ):
         for  i in range(len(convs[conv_index])-1):
-            vectorX = getVector(convs[conv_index][i], id2line, word2vec, vocab, max_seq_length, verbose=0)
-            vectorY = getVector(convs[conv_index][i+1], id2line,  word2vec, vocab, max_seq_length, verbose=0)
+            vectorX = getVector(convs[conv_index][i], id2line, word2vec, vocab, min_seq_length, max_seq_length, verbose=0)
+            vectorY = getVector(convs[conv_index][i+1], id2line,  word2vec, vocab, min_seq_length, max_seq_length, verbose=0)
             X.append(vectorX)
             Y.append(vectorY)
 
@@ -158,7 +161,7 @@ print(Y_CV.shape)
 
 
 
-#####################################################################################################################################
+#######################################         Model          ##################################################################
 
 x = tf.placeholder(tf.float32, [None, max_seq_length, dimension], name='input')
 y = tf.placeholder(tf.float32, [None, max_seq_length, dimension], name='output')

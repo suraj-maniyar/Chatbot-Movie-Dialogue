@@ -63,11 +63,12 @@ def preprocess(text):
 
 
 # Returns padded vector corresponding to given line number
-def getVector(lineNo, id2line, glove_model, vocab, max_seq_length, verbose=0):
+def getVector(lineNo, id2line, glove_model, vocab, min_seq_length, max_seq_length, verbose=0):
     sentence = id2line[lineNo].split()
+    assert( (len(sentence) <= max_seq_length) and (len(sentence) >= min_seq_length) ),
+    ("Length of sentence at line %s is greater than %d" % (lineNo, max_seq_length))
+
     pad_len = max_seq_length - len(sentence)
-    if(pad_len < 0):
-        print("*********************************************")
     pad = ['<pad>'] * pad_len
     sentence = pad + sentence
     vect = []
