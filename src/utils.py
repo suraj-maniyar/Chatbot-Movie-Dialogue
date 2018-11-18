@@ -61,16 +61,28 @@ def preprocess(text):
     return text
 
 
-
-# Returns padded vector corresponding to given line number
-def getVector(lineNo, id2line, glove_model, vocab, min_seq_length, max_seq_length, verbose=0):
+# Returns padded sentence as a list
+def getSentence(lineNo, id2line, min_seq_length, max_seq_length):
     sentence = id2line[lineNo].split()
-    assert( (len(sentence) <= max_seq_length) and (len(sentence) >= min_seq_length) ),
-    ("Length of sentence at line %s is greater than %d" % (lineNo, max_seq_length))
+    assert( (len(sentence) <= max_seq_length) and (len(sentence) >= min_seq_length) ), \
+    ("Length of sentence at line %s is %d" % (lineNo, len(sentence)))
 
     pad_len = max_seq_length - len(sentence)
     pad = ['<pad>'] * pad_len
     sentence = pad + sentence
+
+    if(sentence[-1] != '<eos>'):
+        sentence.append('<eos>')
+        sentence = sentence[1:]
+
+    return sentence
+
+
+# Returns padded vector corresponding to given line number
+def getVector(lineNo, id2line, glove_model, vocab, min_seq_length, max_seq_length, verbose=0):
+
+    sentence = getSentence(lineNo, id2line, min_seq_length, max_seq_length)
+
     vect = []
     for i in range(len(sentence)):
         if(sentence[i] in vocab):
@@ -87,9 +99,9 @@ def getVector(lineNo, id2line, glove_model, vocab, min_seq_length, max_seq_lengt
 
 
 # Returns nearest word to the given vector
-def getWord(vec, glove_model):
+def getWord(vec, word2vec):
     key_dist = {}
-    for key in glove_model.keys():
-        key_dist[key] = np.sum(np.square( vec - glove_model[key] ))
+    for key in word2vec.keys():
+        key_dist[key] = np.sum(np.square( vec - word2vec[key] ))
     min_key = min(key_dist, key=key_dist.get)
     return min_key

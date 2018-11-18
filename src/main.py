@@ -1,5 +1,6 @@
 from sklearn.model_selection import train_test_split
 import os
+import tensorflow as tf
 from utils import *
 
 os.chdir('..')
@@ -124,6 +125,18 @@ word2vec = {}
 for key in vocab:
     word2vec[key] = glove_model[key]
 print('word2vec size : ', len(word2vec.keys()))
+vocab_size = len(word2vec)
+
+# Creating an embedding for words
+embedding = np.zeros((len(word2vec), dimension))
+# Dictionary mapping each word to a unique number
+word2numid = {}
+for id, word in enumerate(list(word2vec.keys())):
+    word2numid[word] = id
+    embedding[id] = word2vec[word]
+
+numid2word = {v: k for k, v in word2numid.items()}
+
 
 
 X = []
@@ -151,7 +164,7 @@ print(Y.shape)
 print('Shuffling...')
 X_train, X_CV, Y_train, Y_CV = train_test_split(X, Y, test_size=0.2, random_state=7)
 
-print('Train')
+print('\nTrain')
 print(X_train.shape)
 print(Y_train.shape)
 
@@ -163,5 +176,8 @@ print(Y_CV.shape)
 
 #######################################         Model          ##################################################################
 
-x = tf.placeholder(tf.float32, [None, max_seq_length, dimension], name='input')
-y = tf.placeholder(tf.float32, [None, max_seq_length, dimension], name='output')
+x = tf.placeholder(tf.float32, [None, None], name='input')
+y = tf.placeholder(tf.float32, [None, None], name='output')
+
+embeddings = tf.Variable(embedding, dtype=tf.float32)
+input_embedded = tf.nn.embedding_lookup(embeddings, x)
