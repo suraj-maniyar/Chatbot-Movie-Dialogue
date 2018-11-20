@@ -13,7 +13,7 @@ os.chdir('..')
 
 # Threshold maximum and minimum number of words to be used in a dialogue.
 # Dialogs having number of words outside this threshold will be discarded.
-max_seq_length = 30
+max_seq_length = 50
 min_seq_length = 1
 
 # Dimension of word vector
@@ -27,13 +27,12 @@ num_epochs = 10
 batch_size = 32
 learning_rate = 1e-3
 
-nodes = 32
-embed_size = 50
 
 #####################################################################################################################################
 
 lines_file = 'data/movie_lines.txt'
 convs_file = 'data/movie_conversations.txt'
+glove_file = '/home/suraj/Dataset/glove.6B/glove.6B.50d.txt'
 
 lines = open(lines_file, encoding='utf-8', errors='ignore').read().split('\n')
 conv_lines = open(convs_file, encoding='utf-8', errors='ignore').read().split('\n')
@@ -112,7 +111,7 @@ vocab.append('<eos>')
 print('Vocab Size = ', len(vocab))
 
 
-glove_model = loadGloveModel('/home/suraj/Dataset/glove.6B/glove.6B.50d.txt')
+glove_model = loadGloveModel(glove_file)
 glove_model['<eos>'] = glove_model['.']
 glove_model['<pad>'] = glove_model['-----']  #np.zeros(dimension)
 glove_model['<go>'] = glove_model['-------']
