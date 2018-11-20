@@ -13,18 +13,18 @@ os.chdir('..')
 
 # Threshold maximum and minimum number of words to be used in a dialogue.
 # Dialogs having number of words outside this threshold will be discarded.
-max_seq_length = 40
+max_seq_length = 30
 min_seq_length = 1
 
 # Dimension of word vector
 dimension = 50
 
 # Total number of conversations which we consider for training.
-total_convs = 50   # len(convs)
+total_convs = 100   # len(convs)
 
 # Learning parameters
-num_epochs = 5
-batch_size = 16
+num_epochs = 10
+batch_size = 32
 learning_rate = 1e-3
 
 nodes = 32
@@ -55,7 +55,7 @@ convs = []
 for line in conv_lines:
   _line = line.split(' +++$+++ ')[-1][1:-1].replace("'", "").replace(" ", "")
   convs.append(_line.split(','))
-
+print('len(convs):', len(convs))
 
 '''
 # List storing maximum no. of words used in all dialogs in all conversations. Use this to set 'Maximum Sequence Length'
@@ -201,7 +201,7 @@ print(Y_CV.shape)
 print('\n')
 print('Epochs:', num_epochs)
 print('Learning Rate:', learning_rate)
-print('Batch Size', batch_size)
+print('Batch Size:', batch_size)
 print('\n')
 
 
