@@ -70,6 +70,8 @@ def preprocess(text):
 def getSentence(lineNo, id2line, min_seq_length, max_seq_length):
     sentence = id2line[lineNo].split()
     sentence = ['<go>'] + sentence
+    if(len(sentence) == max_seq_length+1):
+        sentence = sentence[:-1]
 
     assert( (len(sentence) <= max_seq_length) and (len(sentence) >= min_seq_length) ), \
     ("Length of sentence at line %s is %d" % (lineNo, len(sentence)))
@@ -79,8 +81,10 @@ def getSentence(lineNo, id2line, min_seq_length, max_seq_length):
     sentence = pad + sentence
 
     if(sentence[-1] != '<eos>'):
-        sentence.append('<eos>')
-        sentence = sentence[1:]
+        if(len(sentence) == max_seq_length):
+            sentence[-1] = '<eos>'
+        else:
+            sentence.append('<eos>')
 
     return sentence
 
