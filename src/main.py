@@ -13,7 +13,7 @@ os.chdir('..')
 
 # Threshold maximum and minimum number of words to be used in a dialogue.
 # Dialogs having number of words outside this threshold will be discarded.
-max_seq_length = 100
+max_seq_length = 40
 min_seq_length = 1
 
 # Dimension of word vector
@@ -23,8 +23,8 @@ dimension = 50
 total_convs = 50   # len(convs)
 
 # Learning parameters
-num_epochs = 10
-batch_size = 32
+num_epochs = 5
+batch_size = 16
 learning_rate = 1e-3
 
 nodes = 32
@@ -198,6 +198,14 @@ print('\nCV')
 print(X_CV.shape)
 print(Y_CV.shape)
 
+print('\n')
+print('Epochs:', num_epochs)
+print('Learning Rate:', learning_rate)
+print('Batch Size', batch_size)
+print('\n')
+
+
+
 total_batches_train = int(X_train.shape[0] / batch_size)
 total_batches_CV = int(X_CV.shape[0] / batch_size)
 
@@ -214,11 +222,9 @@ tf.reset_default_graph()
 sess = tf.Session()
 
 inputs = tf.placeholder(tf.int32, (None, max_seq_length), 'inputs')
-outputs = tf.placeholder(tf.int32, (None, None), 'output')
+outputs = tf.placeholder(tf.int32, (None, max_seq_length), 'output')
 
-
-embedding = tf.Variable(tf.convert_to_tensor(embeddingMatrix))
-
+embedding = tf.Variable(tf.convert_to_tensor(embeddingMatrix), trainable=False)
 
 input_embed = tf.nn.embedding_lookup(embedding, inputs)
 output_embed = tf.nn.embedding_lookup(embedding, outputs)
@@ -242,6 +248,8 @@ with tf.name_scope("optimization"):
 train_loss_arr = []
 cv_loss_arr = []
 
+saver = tf.train.Saver()
+
 sess.run(tf.global_variables_initializer())
 
 for epoch in range(num_epochs):
@@ -253,7 +261,7 @@ for epoch in range(num_epochs):
 
         _, batch_loss = sess.run([optimizer, loss], feed_dict={inputs  : batch_x,
                                                                outputs : batch_y})
-        train_loss_val += batch_loss/batch_size
+        train_loss_val += batch_loss
 
     for batch_id in range(total_batches_CV):
         batch_x = X_CV[ batch_id*batch_size : (batch_id+1)*batch_size ]
@@ -261,10 +269,13 @@ for epoch in range(num_epochs):
 
         batch_loss = sess.run(loss, feed_dict={inputs  : batch_x,
                                                outputs : batch_y})
-        print(batch_loss)
-        cv_loss_val += batch_loss/batch_size
+        cv_loss_val += batch_loss
 
+    save_path = saver.save(sess, "model/model")
     train_loss_arr.append(train_loss_val)
     cv_loss_arr.append(cv_loss_val)
 
-    print('Epocs:', epoch, 'Train Loss:', train_loss_val, 'CV Loss:', cv_loss_val)
+    print('Epochs:', epoch+1, 'Train Loss:', train_loss_val, 'CV Loss:', cv_loss_val)
+
+opt = sess.run(logits, {inputs:X_CV, outputs:Y_CV})
+opt_ind = np.argmax(opt, axis=2)
