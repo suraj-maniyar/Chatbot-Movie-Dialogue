@@ -1,7 +1,11 @@
 from sklearn.model_selection import train_test_split
 import os
 import tensorflow as tf
+from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple
+import tensorflow.contrib.legacy_seq2seq as seq2seq
 from utils import *
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 os.chdir('..')
 
@@ -10,19 +14,21 @@ os.chdir('..')
 # Threshold maximum and minimum number of words to be used in a dialogue.
 # Dialogs having number of words outside this threshold will be discarded.
 max_seq_length = 100
-min_seq_length = 2
+min_seq_length = 1
 
 # Dimension of word vector
 dimension = 50
 
 # Total number of conversations which we consider for training.
-total_convs = 200   # len(convs)
+total_convs = 50   # len(convs)
 
 # Learning parameters
-num_epochs = 20
-batch_size = 64
-learning_rate = 1e-4
+num_epochs = 10
+batch_size = 32
+learning_rate = 1e-3
 
+nodes = 32
+embed_size = 50
 
 #####################################################################################################################################
 
@@ -100,12 +106,17 @@ for sublist in words_list2:
 vocab = list(set(word_list))
 vocab.append('<unk>')
 vocab.append('<pad>')
+vocab.append('<go>')
+vocab.append('<eos>')
+
 print('Vocab Size = ', len(vocab))
 
 
 glove_model = loadGloveModel('/home/suraj/Dataset/glove.6B/glove.6B.50d.txt')
 glove_model['<eos>'] = glove_model['.']
-glove_model['<pad>'] = np.zeros(dimension)
+glove_model['<pad>'] = glove_model['-----']  #np.zeros(dimension)
+glove_model['<go>'] = glove_model['-------']
+
 glove_list = list(glove_model.keys())
 
 # Words which are in vocab and have a vector representation.
@@ -117,14 +128,17 @@ print('Number of words from vocab with no mapping : ', len(no_mapping))
 
 # Removing those words from our original vocabulary, which do not have a vector representation
 vocab = list( set(vocab) - set(no_mapping) )
-print('New Vocab Size : ', len(vocab))
 
 # Converting list of vocabulary to a dictionary of vocabulary. word2vec is same as glove_model, but with only those
 # keys which are present in our corpus. This helps reduce size of our dictionary and making vector2word computation more efficient.
 word2vec = {}
 for key in vocab:
     word2vec[key] = glove_model[key]
+
+
+print('New Vocab Size : ', len(vocab))
 print('word2vec size : ', len(word2vec.keys()))
+
 vocab_size = len(word2vec)
 
 # Creating an embedding for words
@@ -143,16 +157,28 @@ X = []
 Y = []
 
 
+
 print('Generating X and Y arrays')
+
+conv_data = []
 for conv_index in range(total_convs):
     # The intersecrion returns set of elements which are present in both the lists
     print('\nConversation',conv_index, '/', total_convs, ' Sentences:',len(convs[conv_index]))
     if(  set(convs[conv_index]) & set(lines_to_ignore)  ==  set() ):
-        for  i in range(len(convs[conv_index])-1):
-            vectorX = getVector(convs[conv_index][i], id2line, word2vec, vocab, min_seq_length, max_seq_length, verbose=0)
-            vectorY = getVector(convs[conv_index][i+1], id2line,  word2vec, vocab, min_seq_length, max_seq_length, verbose=0)
-            X.append(vectorX)
-            Y.append(vectorY)
+        for i in range(len(convs[conv_index])):
+            sentence = getSentence(convs[conv_index][i], id2line, min_seq_length, max_seq_length)
+            id_sen = []
+            for element in sentence:
+                if(element in list(word2numid.keys())):
+                    id_sen.append( word2numid[element] )
+                else:
+                    id_sen.append( word2numid['<unk>'] )
+            conv_data.append(id_sen)
+
+
+for i in range(len(conv_data)-1):
+    X.append(conv_data[i])
+    Y.append(conv_data[i+1])
 
 print('Converting to numpy array...')
 X = np.array(X)
@@ -172,12 +198,73 @@ print('\nCV')
 print(X_CV.shape)
 print(Y_CV.shape)
 
+total_batches_train = int(X_train.shape[0] / batch_size)
+total_batches_CV = int(X_CV.shape[0] / batch_size)
 
 
-#######################################         Model          ##################################################################
+# http://androidkt.com/pre-trained-word-embedding-tensorflow-using-estimator-api/
+embeddingMatrix = np.zeros( (len(numid2word), dimension) )
+for i in range(len(numid2word)):
+    embeddingMatrix[i] = word2vec[numid2word[i]]
+embeddingMatrix = embeddingMatrix.astype(np.float32)
 
-x = tf.placeholder(tf.float32, [None, None], name='input')
-y = tf.placeholder(tf.float32, [None, None], name='output')
 
-embeddings = tf.Variable(embedding, dtype=tf.float32)
-input_embedded = tf.nn.embedding_lookup(embeddings, x)
+
+tf.reset_default_graph()
+sess = tf.Session()
+
+inputs = tf.placeholder(tf.int32, (None, max_seq_length), 'inputs')
+outputs = tf.placeholder(tf.int32, (None, None), 'output')
+
+
+embedding = tf.Variable(tf.convert_to_tensor(embeddingMatrix))
+
+
+input_embed = tf.nn.embedding_lookup(embedding, inputs)
+output_embed = tf.nn.embedding_lookup(embedding, outputs)
+
+with tf.variable_scope("encoding") as encoding_scope:
+    lstm_enc = tf.contrib.rnn.LSTMCell(nodes)
+    # encoder state = last_state
+    _, last_state = tf.nn.dynamic_rnn(lstm_enc, inputs=input_embed, dtype=tf.float32)
+
+with tf.variable_scope("decoding") as decoding_scope:
+    lstm_dec = tf.contrib.rnn.LSTMCell(nodes)
+    dec_outputs, _ = tf.nn.dynamic_rnn(lstm_dec, inputs=output_embed, initial_state=last_state)
+
+logits = tf.layers.dense(dec_outputs, units=len(numid2word), use_bias=True)
+
+with tf.name_scope("optimization"):
+    loss = tf.contrib.seq2seq.sequence_loss(logits, outputs, tf.ones([batch_size, max_seq_length]))
+    optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+
+
+train_loss_arr = []
+cv_loss_arr = []
+
+sess.run(tf.global_variables_initializer())
+
+for epoch in range(num_epochs):
+    train_loss_val = 0
+    cv_loss_val = 0
+    for batch_id in range(total_batches_train):
+        batch_x = X_train[ batch_id*batch_size : (batch_id+1)*batch_size ]
+        batch_y = Y_train[ batch_id*batch_size : (batch_id+1)*batch_size ]
+
+        _, batch_loss = sess.run([optimizer, loss], feed_dict={inputs  : batch_x,
+                                                               outputs : batch_y})
+        train_loss_val += batch_loss/batch_size
+
+    for batch_id in range(total_batches_CV):
+        batch_x = X_CV[ batch_id*batch_size : (batch_id+1)*batch_size ]
+        batch_y = Y_CV[ batch_id*batch_size : (batch_id+1)*batch_size ]
+
+        batch_loss = sess.run(loss, feed_dict={inputs  : batch_x,
+                                               outputs : batch_y})
+        print(batch_loss)
+        cv_loss_val += batch_loss/batch_size
+
+    train_loss_arr.append(train_loss_val)
+    cv_loss_arr.append(cv_loss_val)
+
+    print('Epocs:', epoch, 'Train Loss:', train_loss_val, 'CV Loss:', cv_loss_val)

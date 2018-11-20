@@ -22,6 +22,7 @@ def preprocess(text):
     text = text.lower()
     text = text.replace("you're", "you are")
     text = text.replace("he's", "he is")
+    text = text.replace("who's", "who is")
     text = text.replace("she's", "she is")
     text = text.replace("it's", "it is")
     text = text.replace("what's", "what is")
@@ -34,6 +35,10 @@ def preprocess(text):
     text = text.replace("'d", " would")
     text = text.replace("'can't", "can not")
     text = text.replace("i'm", "i am")
+    text = text.replace("musta", "must have")
+    text = text.replace("outta", "out of")
+    text = text.replace("didn't", "did not")
+    text = text.replace("can't", "can not")
     text = text.replace('.', ' <eos> ')
     text = text.replace(",", "")
     text = text.replace(";", "")
@@ -64,6 +69,8 @@ def preprocess(text):
 # Returns padded sentence as a list
 def getSentence(lineNo, id2line, min_seq_length, max_seq_length):
     sentence = id2line[lineNo].split()
+    sentence = ['<go>'] + sentence
+
     assert( (len(sentence) <= max_seq_length) and (len(sentence) >= min_seq_length) ), \
     ("Length of sentence at line %s is %d" % (lineNo, len(sentence)))
 
@@ -104,4 +111,5 @@ def getWord(vec, word2vec):
     for key in word2vec.keys():
         key_dist[key] = np.sum(np.square( vec - word2vec[key] ))
     min_key = min(key_dist, key=key_dist.get)
+    print('Distance = ', np.sqrt(np.sum(np.square( vec - word2vec[key] ))))
     return min_key
