@@ -10,7 +10,7 @@ class EncoderRNN(object):
 
     def forward(self, x, sl, reverse=True, final=True):
         state = self.encoder_cell.zero_state(len(x), dtype=tf.float32)
-        #######################
+        
         x = tf.convert_to_tensor(x, dtype=tf.float32)
 
         timestep_x = tf.unstack(x, axis=1)
@@ -64,13 +64,10 @@ class DecoderRNN(object):
     def forward(self, x, sos, state, training=False):
         output = tf.convert_to_tensor(sos, dtype=tf.float32)
         words_predicted, words_logits = [], []
+
         for mt in range(self.max_tokens):
-
-            output, state = self.decoder_cell( tf.convert_to_tensor(output, dtype=tf.float32), state )
-
-
+            output, state = self.decoder_cell( tf.convert_to_tensor(output, dtype=tf.float32) , state )
             logits = self.word_predictor(output)
-
             logits = tf.nn.softmax(logits)
             pred_word = tf.argmax(logits, 1).numpy()
             if training:
@@ -90,8 +87,8 @@ class DecoderRNN(object):
         saver = tfe.Saver(self.decoder_cell.variables)
         saver.save(folder_to_save)
 
-    def load(self, x, sos, state, folder_where_saved="decoder_model/"):
-        self.forward(x, sos, state)
+    def load(self, x, sos, state, enc_output, folder_where_saved="decoder_model/"):
+        self.forward(x, sos, (state, enc_output))
         saver = tfe.Saver(self.decoder_cell.variables)
         saver.restore(folder_where_saved)
         print('Successfully loaded Decoder Model')

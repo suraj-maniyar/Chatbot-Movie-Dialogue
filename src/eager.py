@@ -1,3 +1,4 @@
+
 from sklearn.model_selection import train_test_split
 import os
 from utils import *
@@ -21,13 +22,13 @@ min_seq_length = 1
 dimension = 50
 
 # Total number of conversations which we consider for training.
-total_convs = 100   # len(convs)
+total_convs = 200   # len(convs)
 
 # Learning parameters
 num_epochs = 20
-batch_size = 128
+batch_size = 64
 learning_rate = 1e-3
-num_hidden_units = 256
+num_hidden_units = 128
 
 #####################################################################################################################################
 
@@ -190,10 +191,7 @@ for conv_index in range(total_convs):
                 else:
                     col = word2numid['<unk>']
                 vectorY[row][col] = 1
-            #vectorY = getVector(convs[conv_index][i+1], id2line, word2vec, vocab, min_seq_length, max_seq_length, verbose=0)
-            #print(vectorX.shape)
-            #print(vectorY.shape)
-
+            
             X.append(vectorX)
             Y.append(vectorY)
 
@@ -249,6 +247,9 @@ for i in range(len(X_CV)):
             break
 
 
+with open('dumps/sl_CV.pkl', 'wb') as f:
+    pickle.dump(sl_CV, f)
+print('sl_CV saved!')
 
 
 
