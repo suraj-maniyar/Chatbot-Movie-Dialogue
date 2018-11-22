@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 import os
 from utils import *
 import pickle
-import tensorflow.contrib.eager as tfe
+import random
 
 tfe.enable_eager_execution()
 
@@ -15,17 +15,17 @@ os.chdir('..')
 
 # Threshold maximum and minimum number of words to be used in a dialogue.
 # Dialogs having number of words outside this threshold will be discarded.
-max_seq_length = 50
+max_seq_length = 60
 min_seq_length = 1
 
 # Dimension of word vector
 dimension = 50
 
 # Total number of conversations which we consider for training.
-total_convs = 200   # len(convs)
+total_convs = 1000   # len(convs)
 
 # Learning parameters
-num_epochs = 20
+num_epochs = 10
 batch_size = 64
 learning_rate = 1e-3
 num_hidden_units = 128
@@ -214,6 +214,14 @@ Y_train = Y[0 : len_train]
 
 X_CV = X[len_train : ]
 Y_CV = Y[len_train : ]
+
+
+print('Shuffling....')
+zip_list = list(zip(X, Y))
+random.shuffle(zip_list)
+X, Y = zip(*zip_list)
+
+
 
 with open('dumps/X_CV.pkl', 'wb') as f:
     pickle.dump(X_CV, f)
