@@ -1,9 +1,10 @@
 from sklearn.model_selection import train_test_split
 import os
-import tensorflow as tf
-from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple
-import tensorflow.contrib.legacy_seq2seq as seq2seq
 from utils import *
+import pickle
+import tensorflow.contrib.eager as tfe
+
+tfe.enable_eager_execution()
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -23,16 +24,16 @@ dimension = 50
 total_convs = 100   # len(convs)
 
 # Learning parameters
-num_epochs = 10
-batch_size = 32
+num_epochs = 20
+batch_size = 128
 learning_rate = 1e-3
-
+num_hidden_units = 256
 
 #####################################################################################################################################
 
 lines_file = 'data/movie_lines.txt'
 convs_file = 'data/movie_conversations.txt'
-glove_file = '/home/suraj/Dataset/glove.6B/glove.6B.50d.txt'
+glove_file = 'glove.6B.50d.txt'
 
 lines = open(lines_file, encoding='utf-8', errors='ignore').read().split('\n')
 conv_lines = open(convs_file, encoding='utf-8', errors='ignore').read().split('\n')
@@ -55,6 +56,7 @@ for line in conv_lines:
   _line = line.split(' +++$+++ ')[-1][1:-1].replace("'", "").replace(" ", "")
   convs.append(_line.split(','))
 print('len(convs):', len(convs))
+
 
 '''
 # List storing maximum no. of words used in all dialogs in all conversations. Use this to set 'Maximum Sequence Length'
@@ -89,7 +91,7 @@ for conv_index in range(len(convs)):
 
 
 
-#print('max_seq_length : ', max_seq_length)
+print('max_seq_length : ', max_seq_length)
 
 print('Total number of sentences : ', len(text_arr))
 
@@ -113,7 +115,7 @@ print('Vocab Size = ', len(vocab))
 
 glove_model = loadGloveModel(glove_file)
 glove_model['<eos>'] = glove_model['.']
-glove_model['<pad>'] = glove_model['-----']  #np.zeros(dimension)
+glove_model['<pad>'] = glove_model['-----']
 glove_model['<go>'] = glove_model['-------']
 
 glove_list = list(glove_model.keys())
@@ -140,15 +142,30 @@ print('word2vec size : ', len(word2vec.keys()))
 
 vocab_size = len(word2vec)
 
-# Creating an embedding for words
-embedding = np.zeros((len(word2vec), dimension))
-# Dictionary mapping each word to a unique number
+# Dictionary mappings
+
 word2numid = {}
+numid2vec = {}
+
 for id, word in enumerate(list(word2vec.keys())):
     word2numid[word] = id
-    embedding[id] = word2vec[word]
+    numid2vec[id] = word2vec[word]
 
 numid2word = {v: k for k, v in word2numid.items()}
+
+with open('dumps/word2numid.pkl', 'wb') as f:
+    pickle.dump(word2numid, f)
+print('word2numid saved!')
+
+with open('dumps/numid2word.pkl', 'wb') as f:
+    pickle.dump(numid2word, f)
+print('numid2word saved!')
+
+with open('dumps/numid2vec.pkl', 'wb') as f:
+    pickle.dump(numid2vec, f)
+print('numid2vec saved!')
+
+
 
 
 
@@ -156,65 +173,136 @@ X = []
 Y = []
 
 
-
 print('Generating X and Y arrays')
 
-conv_data = []
+
 for conv_index in range(total_convs):
     # The intersecrion returns set of elements which are present in both the lists
-    print('\nConversation',conv_index, '/', total_convs, ' Sentences:',len(convs[conv_index]))
     if(  set(convs[conv_index]) & set(lines_to_ignore)  ==  set() ):
-        for i in range(len(convs[conv_index])):
-            sentence = getSentence(convs[conv_index][i], id2line, min_seq_length, max_seq_length)
-            id_sen = []
-            for element in sentence:
-                if(element in list(word2numid.keys())):
-                    id_sen.append( word2numid[element] )
+        print('Conversation',conv_index, '/', total_convs, ' Sentences:',len(convs[conv_index]))
+        for i in range(len(convs[conv_index])-1):
+            vectorX = getVector(convs[conv_index][i], id2line, word2vec, vocab, min_seq_length, max_seq_length, verbose=0)
+            sentenceY = getSentence(convs[conv_index][i], id2line, min_seq_length, max_seq_length)
+            vectorY = np.zeros( (max_seq_length, vocab_size) )
+            for row in range(max_seq_length):
+                if(sentenceY[row] in vocab):
+                    col = word2numid[sentenceY[row]]
                 else:
-                    id_sen.append( word2numid['<unk>'] )
-            conv_data.append(id_sen)
+                    col = word2numid['<unk>']
+                vectorY[row][col] = 1
+            #vectorY = getVector(convs[conv_index][i+1], id2line, word2vec, vocab, min_seq_length, max_seq_length, verbose=0)
+            #print(vectorX.shape)
+            #print(vectorY.shape)
+
+            X.append(vectorX)
+            Y.append(vectorY)
+
+go_arr = word2vec[ '<go>' ]
+print('go_arr.shape : ', go_arr.shape)
+
+total_len = len(X)
+cv_split = 0.3
+len_train = int( (1-cv_split)*total_len )
+len_CV = int( cv_split*total_len )
+
+print('len(X) : ', len(X))
+print('len_train : ', len_train)
+print('len_CV : ', len_CV)
 
 
-for i in range(len(conv_data)-1):
-    X.append(conv_data[i])
-    Y.append(conv_data[i+1])
 
-print('Converting to numpy array...')
-X = np.array(X)
-Y = np.array(Y)
+X_train = X[0 : len_train]
+Y_train = Y[0 : len_train]
 
-print(X.shape)
-print(Y.shape)
+X_CV = X[len_train : ]
+Y_CV = Y[len_train : ]
 
-print('Shuffling...')
-X_train, X_CV, Y_train, Y_CV = train_test_split(X, Y, test_size=0.2, random_state=7)
+with open('dumps/X_CV.pkl', 'wb') as f:
+    pickle.dump(X_CV, f)
+print('X_CV saved!')
 
-print('\nTrain')
-print(X_train.shape)
-print(Y_train.shape)
+with open('dumps/Y_CV.pkl', 'wb') as f:
+    pickle.dump(Y_CV, f)
+print('Y_CV saved!')
 
-print('\nCV')
-print(X_CV.shape)
-print(Y_CV.shape)
+
+sl_train = []
+sl_CV = []
+
+
+for i in range(len(X_train)):
+    count = 0
+    for j in range(max_seq_length):
+        if(not np.array_equal(np.array(X_train[i][j]), go_arr)):
+            count = count+1
+        else:
+            sl_train.append(max_seq_length-count)
+            break
+
+for i in range(len(X_CV)):
+    count = 0
+    for j in range(max_seq_length):
+        if(not np.array_equal(np.array(X_CV[i][j]), go_arr)):
+            count = count+1
+        else:
+            sl_CV.append(max_seq_length-count)
+            break
+
+
+
+
 
 print('\n')
 print('Epochs:', num_epochs)
 print('Learning Rate:', learning_rate)
 print('Batch Size:', batch_size)
+print('sl_train:', len(sl_train))
+print('sl_CV:', len(sl_CV))
 print('\n')
 
 
-
-total_batches_train = int(X_train.shape[0] / batch_size)
-total_batches_CV = int(X_CV.shape[0] / batch_size)
-
-
-# http://androidkt.com/pre-trained-word-embedding-tensorflow-using-estimator-api/
-embeddingMatrix = np.zeros( (len(numid2word), dimension) )
-for i in range(len(numid2word)):
-    embeddingMatrix[i] = word2vec[numid2word[i]]
-embeddingMatrix = embeddingMatrix.astype(np.float32)
+total_batches_train = int(len_train / batch_size) #int(X_train.shape[0] / batch_size)
+total_batches_CV = int(len_CV / batch_size) #int(X_CV.shape[0] / batch_size)
 
 
 
-tf.reset_default_graph()
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+
+encoder = EncoderRNN(num_units=num_hidden_units)
+decoder = DecoderRNN(word2idx=word2numid, idx2word=numid2word, idx2emb=numid2vec, num_units=num_hidden_units, max_tokens=max_seq_length)
+
+sos = np.array([go_arr]*batch_size)
+print('sos.shape: ', sos.shape)
+
+
+for epoch in range(num_epochs):
+
+    print('Training')
+    for batchTrain_id in range(total_batches_train):
+        batchTrain_x = np.array(X_train[ batchTrain_id*batch_size : (batchTrain_id+1)*batch_size ]).astype('double')
+        batchTrain_y = np.array(Y_train[ batchTrain_id*batch_size : (batchTrain_id+1)*batch_size ]).astype('double')
+
+        optimizer.minimize(lambda: get_loss(encoder, decoder, batchTrain_x, batchTrain_y, sl_train, sos, batchTrain_id, batch_size))
+
+    print('Saving')
+    encoder.save('encoder_model/')
+    decoder.save('decoder_model/')
+
+    print('Training Loss....')
+    train_loss = 0
+    for batchTrain_id in range(total_batches_train):
+        batchTrain_x = np.array(X_train[ batchTrain_id*batch_size : (batchTrain_id+1)*batch_size ]).astype('double')
+        batchTrain_y = np.array(Y_train[ batchTrain_id*batch_size : (batchTrain_id+1)*batch_size ]).astype('double')
+
+        train_loss += get_loss(encoder, decoder, batchTrain_x, batchTrain_y, sl_train, sos, batchTrain_id, batch_size).numpy()
+
+    print('CV Loss.....')
+    cv_loss = 0
+    for batchCV_id in range(total_batches_CV):
+        batchCV_x = np.array(X_CV[ batchCV_id*batch_size : (batchCV_id+1)*batch_size ]).astype('double')
+        batchCV_y = np.array(Y_CV[ batchCV_id*batch_size : (batchCV_id+1)*batch_size ]).astype('double')
+
+        cv_loss += get_loss(encoder, decoder, batchCV_x, batchCV_y, sl_CV, sos, batchCV_id, batch_size).numpy()
+
+
+    print('Epoch', epoch+1, '   Train Loss:', train_loss, '  CV Loss:', cv_loss)

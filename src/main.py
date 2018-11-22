@@ -13,21 +13,21 @@ os.chdir('..')
 
 # Threshold maximum and minimum number of words to be used in a dialogue.
 # Dialogs having number of words outside this threshold will be discarded.
-max_seq_length = 30
+max_seq_length = 50
 min_seq_length = 1
 
 # Dimension of word vector
 dimension = 50
 
 # Total number of conversations which we consider for training.
-total_convs = 100   # len(convs)
+total_convs = 500   # len(convs)
 
 # Learning parameters
-num_epochs = 10
-batch_size = 32
+num_epochs = 20
+batch_size = 64
 learning_rate = 1e-3
 
-nodes = 32
+nodes = 64
 embed_size = 50
 
 #####################################################################################################################################
@@ -57,16 +57,7 @@ for line in conv_lines:
   convs.append(_line.split(','))
 print('len(convs):', len(convs))
 
-'''
-# List storing maximum no. of words used in all dialogs in all conversations. Use this to set 'Maximum Sequence Length'
-len_arr = []
-for conv_index in range(len(convs)):
-    # Check if the conversation is valid. i.e. no. of dialogues in conversation is greater than 1
-    if(len(convs[conv_index]) > 1):
-       for i in range(len(convs[conv_index])):
-         len_arr.append( len(id2line[convs[conv_index][i]].split()) )
-len_arr.sort(reverse=True)
-'''
+
 
 
 
@@ -112,7 +103,7 @@ vocab.append('<eos>')
 print('Vocab Size = ', len(vocab))
 
 
-glove_model = loadGloveModel('/home/suraj/Dataset/glove.6B/glove.6B.50d.txt')
+glove_model = loadGloveModel('glove.6B.50d.txt')
 glove_model['<eos>'] = glove_model['.']
 glove_model['<pad>'] = glove_model['-----']  #np.zeros(dimension)
 glove_model['<go>'] = glove_model['-------']
@@ -158,13 +149,15 @@ Y = []
 
 
 
+
 print('Generating X and Y arrays')
 
 conv_data = []
 for conv_index in range(total_convs):
     # The intersecrion returns set of elements which are present in both the lists
-    print('\nConversation',conv_index, '/', total_convs, ' Sentences:',len(convs[conv_index]))
+    # print('Conversation',conv_index, '/', total_convs, ' Sentences:',len(convs[conv_index]))
     if(  set(convs[conv_index]) & set(lines_to_ignore)  ==  set() ):
+        print('Conversation',conv_index, '/', total_convs, ' Sentences:',len(convs[conv_index]))
         for i in range(len(convs[conv_index])):
             sentence = getSentence(convs[conv_index][i], id2line, min_seq_length, max_seq_length)
             id_sen = []
@@ -198,6 +191,8 @@ print('\nCV')
 print(X_CV.shape)
 print(Y_CV.shape)
 
+
+
 print('\n')
 print('Epochs:', num_epochs)
 print('Learning Rate:', learning_rate)
@@ -215,6 +210,10 @@ embeddingMatrix = np.zeros( (len(numid2word), dimension) )
 for i in range(len(numid2word)):
     embeddingMatrix[i] = word2vec[numid2word[i]]
 embeddingMatrix = embeddingMatrix.astype(np.float32)
+
+
+
+#################################################################################################################################
 
 
 
@@ -277,5 +276,18 @@ for epoch in range(num_epochs):
 
     print('Epochs:', epoch+1, 'Train Loss:', train_loss_val, 'CV Loss:', cv_loss_val)
 
-opt = sess.run(logits, {inputs:X_CV, outputs:Y_CV})
-opt_ind = np.argmax(opt, axis=2)
+opt = []
+
+for batch_id in range(total_batches_CV):
+    batch_x = X_CV[ batch_id*batch_size : (batch_id+1)*batch_size ]
+    batch_y = Y_CV[ batch_id*batch_size : (batch_id+1)*batch_size ]
+    prediction = sess.run(logits, {inputs:batch_x, outputs:batch_y})
+    opt_ind = np.argmax(prediction, axis=2)
+    opt.append(opt_ind)
+    
+
+
+# opt = sess.run(logits, {inputs:X_CV, outputs:Y_CV})
+# opt_ind = np.argmax(opt, axis=2)
+
+
