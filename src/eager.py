@@ -196,7 +196,7 @@ for conv_index in range(total_convs):
             Y.append(vectorY)
 
 go_arr = word2vec[ '<go>' ]
-print('go_arr.shape : ', go_arr.shape)
+#print('go_arr.shape : ', go_arr.shape)
 
 total_len = len(X)
 cv_split = 0.3
@@ -272,8 +272,27 @@ optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 encoder = EncoderRNN(num_units=num_hidden_units)
 decoder = DecoderRNN(word2idx=word2numid, idx2word=numid2word, idx2emb=numid2vec, num_units=num_hidden_units, max_tokens=max_seq_length)
 
+if(os.path.isfile('encoder_model/checkpoint')):
+    print('Loading Encoder.... ')
+    x_dummy = np.array(X_train[0:batch_size]).astype('double')
+    sos_dummy = np.array([numid2vec[word2numid['<go>']]]*batch_size)
+    opt, state = encoder.load(x_dummy, sl_CV)
+
+    if(os.path.isfile('decoder_model/checkpoint')):
+        print('Loading Decoder.... ')
+        decoder.load(x_dummy, sos_dummy, state, opt)
+    else:
+        print('No previously saved decoder model found')
+else:
+    print('No previously saved model found!')
+
+
+
+
+
+
 sos = np.array([go_arr]*batch_size)
-print('sos.shape: ', sos.shape)
+#print('sos.shape: ', sos.shape)
 
 
 for epoch in range(num_epochs):
@@ -307,3 +326,4 @@ for epoch in range(num_epochs):
 
 
     print('Epoch', epoch+1, '   Train Loss:', train_loss, '  CV Loss:', cv_loss)
+
