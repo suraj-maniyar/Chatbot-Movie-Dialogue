@@ -13,22 +13,15 @@ os.chdir('..')
 
 #####################################################################################################################################
 
-# Threshold maximum and minimum number of words to be used in a dialogue.
-# Dialogs having number of words outside this threshold will be discarded.
-max_seq_length = 60
-min_seq_length = 1
-
 # Dimension of word vector
 dimension = 50
 
 # Total number of conversations which we consider for training.
-total_convs = 1000   # len(convs)
+total_convs = 100   # len(convs)
 
 # Learning parameters
 num_epochs = 10
-batch_size = 64
 learning_rate = 1e-3
-num_hidden_units = 128
 
 #####################################################################################################################################
 

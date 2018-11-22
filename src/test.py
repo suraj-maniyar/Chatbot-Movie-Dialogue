@@ -6,20 +6,7 @@ from utils import *
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 os.chdir('..')
-
-#####################################################################################################################################
-
-######## Set these 4 values correctly from eager.py #########
-
-max_seq_length = 50
-min_seq_length = 1
-batch_size = 64
-num_hidden_units = 128
-
-##############################################################
-
 
 
 with open('dumps/word2numid.pkl', 'rb') as f:

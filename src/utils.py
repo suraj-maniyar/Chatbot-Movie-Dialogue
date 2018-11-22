@@ -3,6 +3,28 @@ import tensorflow as tf
 import tensorflow.contrib.eager as tfe
 
 
+
+# Threshold maximum and minimum number of words to be used in a dialogue.
+# Dialogs having number of words outside this threshold will be discarded.
+max_seq_length = 60
+min_seq_length = 1
+
+
+
+
+# Learning parameters
+
+batch_size = 64
+num_hidden_units = 128
+
+
+
+
+
+
+
+
+
 class EncoderRNN(object):
     def __init__(self, num_units=150):
         self.num_units = num_units
